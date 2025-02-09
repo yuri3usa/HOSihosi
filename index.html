@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>プリンセスのジャンプアクション</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { display: flex; justify-content: center; align-items: center; height: 100vh; background: linear-gradient(to bottom, #aeeaff, #ffffff); }
+        #game { position: relative; width: 400px; height: 500px; border: 2px solid #333; background-color: skyblue; overflow: hidden; }
+        #character { position: absolute; bottom: 50px; left: 50px; width: 60px; height: 80px; background-image: url('character.png'); background-size: cover; }
+        .fireball { position: absolute; width: 20px; height: 20px; background-color: orange; border-radius: 50%; }
+        .enemy { position: absolute; bottom: 50px; width: 60px; height: 80px; background-image: url('golem.png'); background-size: cover; }
+        .star { position: absolute; width: 30px; height: 30px; background-image: url('star.png'); background-size: cover; }
+        #goal { position: absolute; bottom: 50px; right: 20px; width: 60px; height: 80px; background: gold; }
+        #hp { position: absolute; top: 10px; left: 10px; font-size: 20px; color: red; }
+        #timer { position: absolute; top: 10px; right: 10px; font-size: 20px; color: blue; }
+    </style>
+</head>
+<body>
+    <div id="game">
+        <div id="character"></div>
+        <div id="hp">HP: 3</div>
+        <div id="timer">Time: 60</div>
+        <div id="goal"></div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const game = document.getElementById("game");
+            const character = document.getElementById("character");
+            const hpDisplay = document.getElementById("hp");
+            const timerDisplay = document.getElementById("timer");
+            const goal = document.getElementById("goal");
+
+            let posX = 50;
+            let posY = 50;
+            let isJumping = false;
+            let direction = "right";
+            let hp = 3;
+            let timeLeft = 60;
+            let starsCollected = 0;
+
+            function spawnEnemy() {
+                let enemy = document.createElement("div");
+                enemy.classList.add("enemy");
+                enemy.style.left = "300px";
+                game.appendChild(enemy);
+
+                let enemyX = 300;
+                let enemySpeed = -2;
+                let moveInterval = setInterval(() => {
+                    enemyX += enemySpeed;
+                    enemy.style.left = enemyX + "px";
+                    if (enemyX < 50 || enemyX > 350) enemySpeed *= -1;
+                    checkCollision(enemy);
+                }, 50);
+
+                enemy.dataset.moveInterval = moveInterval;
+            }
+
+            function spawnStar() {
+                let star = document.createElement("div");
+                star.classList.add("star");
+                star.style.left = Math.random() * 300 + "px";
+                star.style.bottom = Math.random() * 200 + 100 + "px";
+                game.appendChild(star);
+            }
+
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "ArrowRight") {
+                    posX += 10;
+                    direction = "right";
+                    character.style.transform = "scaleX(1)";
+                } else if (e.key === "ArrowLeft") {
+                    posX -= 10;
+                    direction = "left";
+                    character.style.transform = "scaleX(-1)";
+                } else if (e.key === " " && !isJumping) {
+                    jump();
+                } else if (e.key === "z") {
+                    shootFireball();
+                }
+                updatePosition();
+            });
+
+            function jump() {
+                if (isJumping) return;
+                isJumping = true;
+                let jumpHeight = 80;
+                let upInterval = setInterval(() => {
+                    if (jumpHeight <= 0) {
+                        clearInterval(upInterval);
+                        fall();
+                    }
+                    posY += 4;
+                    jumpHeight -= 4;
+                    updatePosition();
+                }, 20);
+            }
+
+            function fall() {
+                let downInterval = setInterval(() => {
+                    if (posY <= 50) {
+                        clearInterval(downInterval);
+                        isJumping = false;
+                    }
+                    posY -= 3;
+                    updatePosition();
+                }, 20);
+            }
+
+            function updatePosition() {
+                character.style.left = posX + "px";
+                character.style.bottom = posY + "px";
+                checkGoal();
+                checkStar();
+            }
+
+            function shootFireball() {
+                let fireball = document.createElement("div");
+                fireball.classList.add("fireball");
+                game.appendChild(fireball);
+
+                let fireX = posX + (direction === "right" ? 40 : -10);
+                let fireY = posY + 30;
+                fireball.style.left = fireX + "px";
+                fireball.style.bottom = fireY + "px";
+
+                let speed = direction === "right" ? 5 : -5;
+                let moveInterval = setInterval(() => {
+                    fireX += speed;
+                    fireball.style.left = fireX + "px";
+
+                    if (fireX > 400 || fireX < 0) {
+                        clearInterval(moveInterval);
+                        fireball.remove();
+                    }
+
+                    document.querySelectorAll(".enemy").forEach(enemy => {
+                        if (fireball.getBoundingClientRect().intersects(enemy.getBoundingClientRect())) {
+                            clearInterval(moveInterval);
+                            fireball.remove();
+                            clearInterval(enemy.dataset.moveInterval);
+                            enemy.remove();
+                        }
+                    });
+                }, 20);
+            }
+
+            function checkCollision(enemy) {
+                if (character.getBoundingClientRect().intersects(enemy.getBoundingClientRect())) {
+                    hp--;
+                    hpDisplay.innerText = "HP: " + hp;
+                    if (hp <= 0) alert("ゲームオーバー！");
+                }
+            }
+
+            function checkStar() {
+                document.querySelectorAll(".star").forEach(star => {
+                    if (character.getBoundingClientRect().intersects(star.getBoundingClientRect())) {
+                        starsCollected++;
+                        star.remove();
+                    }
+                });
+            }
+
+            function checkGoal() {
+                if (character.getBoundingClientRect().intersects(goal.getBoundingClientRect()) && starsCollected >= 3) {
+                    alert("クリア！");
+                }
+            }
+
+            setInterval(() => {
+                timeLeft--;
+                timerDisplay.innerText = "Time: " + timeLeft;
+                if (timeLeft <= 0) alert("時間切れ！");
+            }, 1000);
+
+            spawnEnemy();
+            spawnStar();
+            spawnStar();
+            spawnStar();
+        });
+    </script>
+</body>
+</html>
